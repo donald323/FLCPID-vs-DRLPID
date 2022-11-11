@@ -1,2 +1,3 @@
 # FLCPID-vs-DRLPID
-A Comparative Analysis of Fuzzy Logic and Deep Reinforcement Learning’s Applications on PID Tuning for Autonomous Ships
+
+Greeting to fellow readers who are interested in Fuzzy PID and/or Deep Reinforcement Learning-based PID, and/or autonomous ship simulation. I am Donald Cheng, a master student from Xi'an Jiaotong-Liverpool University who study Pattern Recognition and Intelligent Systems, and my dissertation project is a comparative analysis of Fuzzy Logic and Deep Reinforcement Learning’s applications in PID Tuning for autonomous ships. I will be sharing my codes in how I apply Fuzzy Logic/Deep Reinforcement Learning in building an adaptive PID to improve an autonomous ship's performance in error reduction. The codes are in Python, and I will post the list of required libraries later. Last but not least, feel free to use my code for educational purposes.
