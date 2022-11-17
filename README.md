@@ -10,4 +10,4 @@ Please make sure to copy all .py file into the same folder to ensure the simulat
 
 11.17.2022
 
-Added libraries and a demo file for the ship simulator.
+Added libraries and a demo file ('ship_simulation_demo.py') for the ship simulator.
