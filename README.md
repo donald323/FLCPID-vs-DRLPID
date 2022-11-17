@@ -6,7 +6,7 @@ Greeting to fellow readers who are interested in Fuzzy PID and/or Deep Reinforce
 
 Please make sure to copy all .py file into the same folder to ensure the simulator to work.
 
-# Libraries Needed for Ship Simulator
+# Libraries
 - Ship Simulator
   - python 3.7.2
   - numpy 1.21.5
