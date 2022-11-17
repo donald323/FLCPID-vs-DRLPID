@@ -2,7 +2,6 @@
 
 import utility as uti
 import numpy as np
-from statsmodels import api as sm
 
 class Artificial_Potential_Field:
 	def __init__(self,r,k,kb,kv):
