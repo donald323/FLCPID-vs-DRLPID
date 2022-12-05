@@ -24,3 +24,7 @@ Please make sure to copy all .py file into the same folder to ensure the simulat
 
 - Added libraries and a demo file ('ship_simulation_demo.py') for the ship simulator.
 - Update README.md
+
+12.5.2022
+
+- Upload all codes of ship simulator with AIPID and plots of all results
