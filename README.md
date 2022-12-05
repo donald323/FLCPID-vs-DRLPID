@@ -7,17 +7,25 @@ Greeting to fellow readers who are interested in Fuzzy PID and/or Deep Reinforce
 Errors Performance:
 
 Unacceptable: 2.0 <= average AAE
+
 Poor: 1.5 <= average AAE < 2.0
+
 Average: 1.0 <= average AAE < 1.5
+
 Good: 0.5 <= average AAE < 1.0
+
 Excellent: average AAE <= 0.5
 
 Stability:
 
 Unstable: 20% <= %RD
+
 Slightly stable: 15% <= %RD < 20%
+
 Moderately Stable: 10% <= %RD < 15%
+
 Stable: 5% <= %RD < 10%
+
 Very Stable: %RD  <= 5%
 
 
