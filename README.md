@@ -16,6 +16,7 @@ Good: 0.5 <= average AAE < 1.0
 
 Excellent: average AAE <= 0.5
 
+
 Stability:
 
 Unstable: 20% <= %RD
