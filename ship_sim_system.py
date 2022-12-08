@@ -160,6 +160,11 @@ class ship_sim:
 						self.test_PID.ki = action[1]
 						self.test_PID.kd = action[2]
 
+					#Add to the PID gain tracker
+					kp_tracker.append(self.test_PID.kp)
+					ki_tracker.append(self.test_PID.ki)
+					kd_tracker.append(self.test_PID.kd)
+
 			#Virtual Mode Check, Activate if the ship starts to orbit and not able to go to other targets
 			if len(ref_angle_tracker) == self.ref_angle_tracker_capacity:
 				#Uses self-correlation to detect repeated signal and determine whether the ship is repeating itself or not
@@ -234,6 +239,33 @@ class ship_sim:
 				error += 2 * np.pi
 			elif error > np.pi:
 				error -= 2 * np.pi
+
+			#Fuzzy PID Gain Update
+			if self.algorithm == 'Fuzzy Logic':
+				#Run Fuzzy Logic Calculation
+				FLC.kp_sim.input['Error'] = error
+				FLC.kp_sim.input['Error Derivative'] = error - self.test_PID.error_old
+				FLC.kp_sim.compute()
+				kp_defuzz = FLC.kp_sim.output['Kp Output']
+
+				FLC.ki_sim.input['Error'] = error
+				FLC.ki_sim.input['Error Derivative'] = error - self.test_PID.error_old
+				FLC.ki_sim.compute()
+				ki_defuzz = FLC.ki_sim.output['Ki Output']
+
+				FLC.kd_sim.input['Error'] = error
+				FLC.kd_sim.input['Error Derivative'] = error - self.test_PID.error_old
+				FLC.kd_sim.compute()
+				kd_defuzz = FLC.kd_sim.output['Kd Output']
+
+				dPID = [kp_defuzz,ki_defuzz,kd_defuzz]
+				self.test_PID.PID_gain_update(dPID)
+
+				#Add to the PID gain tracker
+				kp_tracker.append(self.test_PID.kp)
+				ki_tracker.append(self.test_PID.ki)
+				kd_tracker.append(self.test_PID.kd)
+
 			self.test_ship.rudder_angle = self.test_PID.PID_output(error,[-self.test_ship.max_rudder_angle,self.test_ship.max_rudder_angle])
 			aes += np.abs(error) #Add to the sum of absolute error
 
@@ -275,30 +307,9 @@ class ship_sim:
 			if len(self.test_env.targets_listx) == 0 or boundary_check or step_counter == self.num_steps:
 				done = True
 
-			#FLC Update / Step-based DRLPID Update
-			if step_update:
-
-				if self.algorithm == 'Fuzzy Logic':
-
-					#Run Fuzzy Logic Calculation
-					FLC.kp_sim.input['Error'] = error
-					FLC.kp_sim.input['Error Derivative'] = error - self.test_PID.error_old
-					FLC.kp_sim.compute()
-					kp_defuzz = FLC.kp_sim.output['Kp Output']
-
-					FLC.ki_sim.input['Error'] = error
-					FLC.ki_sim.input['Error Derivative'] = error - self.test_PID.error_old
-					FLC.ki_sim.compute()
-					ki_defuzz = FLC.ki_sim.output['Ki Output']
-
-					FLC.kd_sim.input['Error'] = error
-					FLC.kd_sim.input['Error Derivative'] = error - self.test_PID.error_old
-					FLC.kd_sim.compute()
-					kd_defuzz = FLC.kd_sim.output['Kd Output']
-
-					dPID = [kp_defuzz,ki_defuzz,kd_defuzz]
-					self.test_PID.PID_gain_update(dPID)
-				elif step_counter % self.update_freq == 0 and self.learn == True:
+			#Step-based DRLPID Update
+			if step_update and self.algorithm != 'Fuzzy Logic':
+				if step_counter % self.update_freq == 0 and self.learn == True :
 					
 					#Obtain Next State
 					if self.algorithm == 'DQN' or self.algorithm == 'A2C':
@@ -306,16 +317,13 @@ class ship_sim:
 					elif self.algorithm == 'DDPG':
 						next_state = [error,self.test_PID.error_diff,self.test_PID.error_sum,past_rudder_angle]
 					
-					reward = uti.step_reward(error,self.test_PID.error_old,self.reward_1,self.reward_2) #Calculate Reward
+					reward = uti.step_reward(error,self.test_PID.error_old,self.reward_1,self.reward_2,self.test_PID.return_PID(),0.1,0.9) #Calculate Reward
 					reward_sum += reward
 
 					self.agent.update(state,action,reward,next_state,done)
 					state = next_state
 
-				#Add to the PID gain tracker
-				kp_tracker.append(self.test_PID.kp)
-				ki_tracker.append(self.test_PID.ki)
-				kd_tracker.append(self.test_PID.kd)
+
 
 			#Animation if needed for seeing the motion in real time
 			if animate:
