@@ -56,3 +56,8 @@ Please make sure to copy all .py file into the same folder to ensure the simulat
 12.5.2022
 
 - Upload all codes of ship simulator with AIPID and plots of all results, with collected data for full test and target test.
+
+12.15.2022
+
+- Modify the ship_simulation_system.py, to change from taking action to update PID gains for DRLPID after updating ship's coordinate to after calculating the error.
+- Re-upload all test results
