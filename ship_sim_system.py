@@ -130,40 +130,13 @@ class ship_sim:
 		past_rudder_angle = self.test_ship.rudder_angle #Record the rudder angle from previous rudder
 		aes = 0 #Sum of absolute error
 		reward_sum = 0 #Sum of reward
-
-		#Define the initial state for DRLPID
-		if step_update and self.algorithm != 'Fuzzy Logic':
-			if self.algorithm == 'DQN' or self.algorithm == 'A2C':
-				state = [self.test_PID.kp,self.test_PID.ki,self.test_PID.kd,self.test_PID.error_old,self.test_PID.error_diff,self.test_PID.error_sum,past_rudder_angle]
-			elif self.algorithm == 'DDPG':
-				state = [self.test_PID.error_old,self.test_PID.error_diff,self.test_PID.error_sum,past_rudder_angle]
+		action_counter = 0
 
 		if self.algorithm == 'A2C' and step_update: #Reset transition dictionary for every episode
 			self.agent.transition_dict_reset()
 
 		#Run episode until termination			
 		while not done:
-			step_counter += 1
-
-			#DRLPID Step Update, update first for observation on the affect after adjusting it (opposite when compare with Fuzzy PID, which update after error has been measured)
-			if step_update and self.algorithm != 'Fuzzy Logic':
-				if step_counter % self.update_freq == 0:
-					if self.algorithm == 'DQN' or self.algorithm == 'A2C':
-						action = self.agent.agent.take_action(state)
-						dPID = self.all_actions[action][0:3] #Add the increment to the PID gains
-						self.test_PID.PID_gain_update(dPID)
-					elif self.algorithm == 'DDPG':
-						action = self.agent.agent.take_action(state)
-						action = list(action[0])
-						#Override the PID gains if the algorithm uses step-based DDPGPID
-						self.test_PID.kp = action[0]
-						self.test_PID.ki = action[1]
-						self.test_PID.kd = action[2]
-
-					#Add to the PID gain tracker
-					kp_tracker.append(self.test_PID.kp)
-					ki_tracker.append(self.test_PID.ki)
-					kd_tracker.append(self.test_PID.kd)
 
 			#Virtual Mode Check, Activate if the ship starts to orbit and not able to go to other targets
 			if len(ref_angle_tracker) == self.ref_angle_tracker_capacity:
@@ -240,6 +213,9 @@ class ship_sim:
 			elif error > np.pi:
 				error -= 2 * np.pi
 
+			ed = error - self.test_PID.error_old
+			ei = error + self.test_PID.error_sum
+
 			#Fuzzy PID Gain Update
 			if self.algorithm == 'Fuzzy Logic':
 				#Run Fuzzy Logic Calculation
@@ -265,6 +241,51 @@ class ship_sim:
 				kp_tracker.append(self.test_PID.kp)
 				ki_tracker.append(self.test_PID.ki)
 				kd_tracker.append(self.test_PID.kd)
+			else:
+				if step_counter == 0:
+					#Define the initial state for DRLPID
+					if step_update and self.algorithm != 'Fuzzy Logic':
+						if self.algorithm == 'DQN' or self.algorithm == 'A2C':
+							state = [self.test_PID.kp,self.test_PID.ki,self.test_PID.kd,error,ed,ei,past_rudder_angle]
+						elif self.algorithm == 'DDPG':
+							state = [error,ed,ei,past_rudder_angle]
+				else:
+					if step_update and self.algorithm != 'Fuzzy Logic':
+						if self.algorithm == 'DQN' or self.algorithm == 'A2C':
+							next_state = [self.test_PID.kp,self.test_PID.ki,self.test_PID.kd,error,ed,ei,past_rudder_angle]
+						elif self.algorithm == 'DDPG':
+							next_state = [error,ed,ei,past_rudder_angle]					
+
+			#DRLPID Action
+			if step_update and self.algorithm != 'Fuzzy Logic':
+				if step_counter % self.update_freq == 0:
+					action_counter += 1
+					if self.algorithm == 'DQN' or self.algorithm == 'A2C':
+						action = self.agent.agent.take_action(state)
+						dPID = self.all_actions[action][0:3] #Add the increment to the PID gains
+						self.test_PID.PID_gain_update(dPID)
+					elif self.algorithm == 'DDPG':
+						action = self.agent.agent.take_action(state)
+						action = list(action[0])
+						#Override the PID gains if the algorithm uses step-based DDPGPID
+						self.test_PID.kp = action[0]
+						self.test_PID.ki = action[1]
+						self.test_PID.kd = action[2]
+
+			#Step-based DRLPID Update
+			if step_update and self.algorithm != 'Fuzzy Logic':
+				if (step_counter + 1) % self.update_freq == 0 and step_counter > 0:
+					if self.learn:
+						reward = uti.step_reward(error,self.test_PID.error_old,self.reward_1,self.reward_2,self.test_PID.return_PID(),0.1,0.9) #Calculate Reward
+						reward_sum += reward
+						self.agent.update(state,action,reward,next_state,done)
+					state = next_state
+
+				#Add to the PID gain tracker
+				kp_tracker.append(self.test_PID.kp)
+				ki_tracker.append(self.test_PID.ki)
+				kd_tracker.append(self.test_PID.kd)
+
 
 			self.test_ship.rudder_angle = self.test_PID.PID_output(error,[-self.test_ship.max_rudder_angle,self.test_ship.max_rudder_angle])
 			aes += np.abs(error) #Add to the sum of absolute error
@@ -307,24 +328,6 @@ class ship_sim:
 			if len(self.test_env.targets_listx) == 0 or boundary_check or step_counter == self.num_steps:
 				done = True
 
-			#Step-based DRLPID Update
-			if step_update and self.algorithm != 'Fuzzy Logic':
-				if step_counter % self.update_freq == 0 and self.learn == True :
-					
-					#Obtain Next State
-					if self.algorithm == 'DQN' or self.algorithm == 'A2C':
-						next_state = [self.test_PID.kp,self.test_PID.ki,self.test_PID.kd,error,self.test_PID.error_diff,self.test_PID.error_sum,past_rudder_angle]
-					elif self.algorithm == 'DDPG':
-						next_state = [error,self.test_PID.error_diff,self.test_PID.error_sum,past_rudder_angle]
-					
-					reward = uti.step_reward(error,self.test_PID.error_old,self.reward_1,self.reward_2,self.test_PID.return_PID(),0.1,0.9) #Calculate Reward
-					reward_sum += reward
-
-					self.agent.update(state,action,reward,next_state,done)
-					state = next_state
-
-
-
 			#Animation if needed for seeing the motion in real time
 			if animate:
 				self.plot_motion(motion_title,ship_trackerx,ship_trackery,ref_angle,olistx,olisty,tlistx,tlisty,molistx,molisty,obstacle_included)
@@ -335,6 +338,7 @@ class ship_sim:
 			#Update information for next step
 			self.test_PID.old_error_update(error)
 			past_rudder_angle = self.test_ship.rudder_angle
+			step_counter += 1
 
 		AAE = aes / step_counter #Calculate the Average Absolute Error for the reference of the episode's performance
 
@@ -353,5 +357,5 @@ class ship_sim:
 				quit()
 			plt.show()
 		if step_update and self.algorithm != 'Fuzzy Logic':
-			self.reward_average = reward_sum / (step_counter / self.update_freq) #Calcualte average reward for all actions taken
+			self.reward_average = reward_sum / action_counter #Calcualte average reward for all actions taken
 		return AAE
